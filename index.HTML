@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Cremona CL - Gestione Turni Ufficiale</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
+
+    <style>
+        :root { --poste-giallo: #ffcc00; --poste-blu: #004a99; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f9; margin: 0; padding-bottom: 150px; }
+        header { background: white; padding: 15px 5%; border-bottom: 5px solid var(--poste-giallo); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .logo-poste { height: 160px; }
+        .sede-info { text-align: right; color: var(--poste-blu); }
+        .titolo-sede { font-weight: bold; font-size: 1.3em; margin: 0; }
+        .date-range { font-size: 1em; color: #555; margin-top: 2px; font-weight: normal; }
+        .nav-sett { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+        .btn-nav { cursor: pointer; background: var(--poste-blu); color: white; border: none; padding: 5px 12px; border-radius: 5px; font-weight: bold; }
+        .container { width: 98%; margin: 20px auto; }
+        h2 { color: var(--poste-blu); border-left: 5px solid var(--poste-giallo); padding-left: 10px; font-size: 1.1em; text-transform: uppercase; margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; background: white; font-size: 0.82em; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); table-layout: fixed; }
+        th { background: var(--poste-blu); color: white; padding: 10px; border: 1px solid #003366; width: 12.5%; }
+        th:first-child { width: 25%; }
+        td { border: 1px solid #ddd; padding: 8px; text-align: center; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .name-cell { text-align: left; font-weight: bold; background: #fafafa; padding-left: 10px; cursor: default; display: flex; justify-content: space-between; align-items: center; }
+        .btn-del-ctd { color: #dc3545; cursor: pointer; font-weight: bold; margin-right: 5px; padding: 0 5px; font-size: 1.2em; }
+        .btn-del-ctd:hover { background: #f8d7da; border-radius: 3px; }
+        .riposo-base { background-color: #eeeeee !important; color: #888; }
+        .assenza { background-color: #cfd8dc !important; color: #37474f; font-weight: bold; }
+        .festivo { background-color: #455a64 !important; color: white !important; font-weight: bold; }
+        .straordinario { background-color: #e3f2fd !important; color: #0d47a1; font-weight: bold; }
+        .cambio-automatico { background-color: #fff3cd !important; color: #856404; font-style: italic; border: 2px solid #ffeeba !important; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; border-radius: 10px; width: 400px; border-top: 10px solid var(--poste-giallo); }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .footer { position: fixed; bottom: 0; width: 100%; background: white; padding: 15px 0; text-align: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; display: flex; justify-content: center; gap: 15px; }
+        .btn-print { background: #28a745; color: white; border: none; padding: 12px 40px; border-radius: 25px; font-weight: bold; cursor: pointer; }
+        .btn-cambio { background: #ffc107; color: #000; border: none; padding: 12px 25px; border-radius: 25px; font-weight: bold; cursor: pointer; }
+        @media print { .nav-sett, .footer, .btn-nav, .modal, .btn-del-ctd { display: none !important; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="https://iconlogovector.com/uploads/images/2025/03/lg-67d8afb5e5b96-Poste-italiane.webp" alt="Poste Italiane" class="logo-poste">
+    <div class="sede-info">
+        <div class="titolo-sede">CENTRO LOGISTICO CREMONA</div>
+        <div id="label-sett-esteso" class="date-range">Caricamento date...</div>
+        <div class="nav-sett">
+            <button class="btn-nav" onclick="cambiaSett(-1)">&#10094; Prec.</button>
+            <button class="btn-nav" onclick="cambiaSett(1)">Succ. &#10095;</button>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <h2>Full Time</h2>
+    <table id="table-ft"><thead><tr class="header-days"></tr></thead><tbody id="ft-body"></tbody></table>
+    
+    <h2>Personale CTD <button style="background:#007bff;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:0.7em" onclick="aggiungi()">+ AGGIUNGI</button></h2>
+    <table id="table-ctd"><thead><tr class="header-days"></tr></thead><tbody id="ctd-body"></tbody></table>
+
+    <h2>Part Time</h2>
+    <table id="table-pt"><thead><tr class="header-days"></tr></thead><tbody id="pt-body"></tbody></table>
+</div>
+
+<div id="modalCambio" class="modal">
+    <div class="modal-content">
+        <h3 style="color:var(--poste-blu)">Richiesta Cambio Turno</h3>
+        <label>Richiedente:</label><select id="richiedente"></select>
+        <label>Collega per scambio:</label><select id="collegaCambio"></select>
+        <label>Seleziona i giorni:</label><input type="text" id="giorniCalendario" placeholder="Scegli i giorni...">
+        <button class="btn-print" style="width:100%; margin-top:10px" onclick="soloInviaEmail()">INVIA RICHIESTA</button>
+        <button style="width:100%; margin-top:5px; background:#aaa; color:white; border:none; padding:10px; border-radius:5px;" onclick="chiudiModal()">ANNULLA</button>
+    </div>
+</div>
+
+<div class="footer">
+    <button class="btn-cambio" onclick="apriModal()"> RICHIESTA CAMBIO TURNO</button>
+    <button class="btn-print" onclick="window.print()"> STAMPA PROGRAMMAZIONE</button>
+    <button class="btn-print" style="background:#dc3545" onclick="resetSettimana()"> RESET SETTIMANA</button>
+</div>
+
+<script>
+// --- CONFIGURAZIONE ---
+const urlScript = "https://script.google.com/macros/s/AKfycbyvjHb0ZSirkRbZMnP-ageUqjMuQeCKY0uKpec54uV-GFnXciT7dB627huxxQdlyh93AQ/exec"; 
+
+let dataInizio = getMonday(new Date());
+let calendar;
+let cambiApprovati = [];
+// Inizializziamo dbGlobale con strutture vuote per evitare che la pagina sparisca
+let dbGlobale = { modifiche: {}, ctdList: [] }; 
+
+const festivi2026 = ["01/01", "06/01", "05/04", "06/04", "25/04", "01/05", "02/06", "15/08", "01/11", "08/12", "25/12", "26/12"];
+
+const ftBase = [
+    {n: "MIGNONE PAOLO", t: "CSQ_A"}, {n: "FAVAGROSSA GABRIELE", t: "CSQ_B"},
+    {n: "ATTOLINI MARCO", t: "ROT3"}, {n: "BARBIERI JURI RAFFAELE", t: "F", o: "10:00/17:27"},
+    {n: "GRASSO GIOVANNI", t: "F", o: "13:00/20:27"}, {n: "MARCHIOLI CHIARA", t: "F", o: "08:00/15:27"},
+    {n: "LOMBARDO CLAUDIA", t: "F", o: "08:00/15:27"}, {n: "MIRENDA SARINA", t: "F", o: "04:30/11:57", s: "04:30/09:00 (STR)"},
+    {n: "PANE CARMINE", t: "F", o: "13:00/20:27"}, {n: "PICCHI MARIA CRISTINA", t: "ROT_P"},
+    {n: "UCCHINO CESARINA", t: "F", o: "06:00/11:30"}, {n: "VALCARENGHI MATTEO", t: "F", o: "RIPOSO"},
+    {n: "MARRA DARIO", t: "F", o: "04:30/11:57"}
+];
+
+const ptNames = ["ARAGONA ALESSIA", "BERTONI ELISA", "BONAFFINI MARIA", "CAROCCIA PIERLUIGI", "CERFEDA GIORGIA", "DELL'AQUILA MARTINA", "GIGLIO MARIKA", "MAGARELLI ENRICO", "PANATTONI DAVIDE", "PIDDINI GIULIA", "PISCOPO EDUARDO", "ROCCHETTI NOEMI", "RONDINELLA FRANCESCO", "SICILIANO ANDREA", "SIMONELLI ALESSANDRA"];
+
+function getMonday(d) { d = new Date(d); let day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6:1); return new Date(d.setDate(diff)); }
+function isFestivo(dataObj) {
+    let stringa = dataObj.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'});
+    return festivi2026.includes(stringa);
+}
+
+function calcolaLogicaBase(tipo, nome, giornoIdx) {
+    const dataRifGlobal = new Date(2026, 4, 4);
+    const dataCorrente = new Date(dataInizio);
+    dataCorrente.setDate(dataCorrente.getDate() + giornoIdx);
+    if (isFestivo(dataCorrente)) return "FESTIVO";
+
+    const diffSett = Math.floor((dataInizio - dataRifGlobal) / (7 * 24 * 60 * 60 * 1000));
+
+    if (tipo === 'FT') {
+        let p = ftBase.find(x => x.n === nome);
+        let idxAttolini = (diffSett % 3 + 3) % 3;
+        let tAttolini = ["04:30/11:57", "02:00/09:27", "13:00/20:27"][idxAttolini];
+        if (nome === "ATTOLINI MARCO") return giornoIdx === 5 ? "RIPOSO" : tAttolini;
+        if (nome === "PICCHI MARIA CRISTINA") {
+            let tPicchi = (tAttolini.startsWith("02:00")) ? "04:30/11:57" : "02:00/09:57";
+            return giornoIdx === 5 ? "04:30/09:00 (STR)" : tPicchi;
+        }
+        let t = (p.t === "F") ? p.o : (p.t === "CSQ_A") ? ((diffSett % 2 === 0) ? "06:00/13:27" : "13:00/20:27") : (p.t === "CSQ_B") ? ((diffSett % 2 === 0) ? "13:00/20:27" : "06:00/13:27") : "RIPOSO";
+        if(giornoIdx === 5) t = (p.n.includes("MIGNONE") || p.n.includes("FAVAGROSSA")) ? "RIPOSO" : (p.s || "RIPOSO");
+        return t;
+    }
+
+    if (tipo === 'PT') {
+        const base = [...ptNames];
+        const rot = ((diffSett * 2) % base.length + base.length) % base.length;
+        const lista = base.slice(rot).concat(base.slice(0, rot));
+        const turni = { turno02: lista.slice(0, 2), turno16: lista.slice(2, 4), turno0430: lista.slice(4), sabato: lista.slice(4, 7) };
+        let turno = turni.turno02.includes(nome) ? "02:00/05:36" : (turni.turno16.includes(nome) ? "16:51/20:27" : "04:30/08:06");
+        if (giornoIdx === 5) turno = (turni.sabato.includes(nome) && turno === "04:30/08:06") ? turno : "RIPOSO";
+        if (giornoIdx === 0 && turni.sabato.includes(nome) && turno === "04:30/08:06") turno = "RIPOSO";
+        return turno;
+    }
+
+    if (tipo === 'CTD') {
+        let i = dbGlobale.ctdList.indexOf(nome);
+        if (i === -1) return "08:00/14:00"; // Fallback
+        let b = ["02:00/08:00", "04:30/10:30", "14:00/20:00"][(i + diffSett) % 3];
+        return giornoIdx === 5 ? "04:30/10:30" : b;
+    }
+}
+
+function getTurnoDefault(tipo, nome, giornoIdx) {
+    let turno = calcolaLogicaBase(tipo, nome, giornoIdx);
+    if (turno === "FESTIVO") return "FESTIVO";
+    let dCorrente = new Date(dataInizio); dCorrente.setDate(dCorrente.getDate() + giornoIdx);
+    let dStr = dCorrente.toLocaleDateString('it-IT');
+    cambiApprovati.forEach(c => {
+        if (c.d && c.d.includes(dStr)) {
+            if (nome === c.r || nome === c.c) {
+                let altroDip = (nome === c.r) ? c.c : c.r;
+                let tipoAltro = ptNames.includes(altroDip) ? 'PT' : (ftBase.some(x=>x.n===altroDip) ? 'FT' : 'CTD');
+                let tBaseAltro = calcolaLogicaBase(tipoAltro, altroDip, giornoIdx);
+                turno = tBaseAltro + " 🔄";
+            }
+        }
+    });
+    return turno;
+}
+
+async function caricaDatiDalServer() {
+    try {
+        const r = await fetch(urlScript);
+        const data = await r.json();
+        // Se ricevo dati validi, aggiorno. Altrimenti mantengo quelli iniziali ma renderizzo comunque.
+        if(data && typeof data === 'object') {
+            dbGlobale.modifiche = data.modifiche || {};
+            dbGlobale.ctdList = data.ctdList || [];
+        }
+    } catch(e) { console.warn("Dati server non disponibili, uso locale."); }
+    render();
+}
+
+async function salvaDatiSulServer() {
+    try {
+        await fetch(urlScript, { method: 'POST', body: JSON.stringify({ action: "saveAll", payload: dbGlobale }) });
+    } catch(e) { console.error("Errore salvataggio", e); }
+}
+
+function render() {
+    let lun = new Date(dataInizio);
+    let sab = new Date(dataInizio); sab.setDate(sab.getDate() + 5);
+    document.getElementById('label-sett-esteso').innerText = `Settimana dal ${lun.toLocaleDateString('it-IT')} al ${sab.toLocaleDateString('it-IT')}`;
+
+    const giorniSett = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB"];
+    const headers = document.querySelectorAll('.header-days');
+    headers.forEach(h => {
+        let content = '<th>Dipendente</th>';
+        for(let i=0; i<6; i++) {
+            let d = new Date(dataInizio); d.setDate(d.getDate() + i);
+            content += `<th>${giorniSett[i]} ${d.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'})}</th>`;
+        }
+        h.innerHTML = content;
+    });
+
+    const generaTabella = (lista, tipo, target) => {
+        let settKey = dataInizio.toLocaleDateString('it-IT');
+        let modSett = dbGlobale.modifiche[settKey] || {};
+
+        document.getElementById(target).innerHTML = lista.map(obj => {
+            let n = (typeof obj === 'string') ? obj : obj.n;
+            let nEscaped = n.replace(/'/g, "\\'");
+            let nameContent = (tipo === 'CTD') ? `<span>${n}</span><span class="btn-del-ctd" onclick="eliminaCTD('${nEscaped}')">×</span>` : n;
+
+            let row = `<tr><td class="name-cell">${nameContent}</td>`;
+            for(let g=0; g<6; g++) {
+                let def = getTurnoDefault(tipo, n, g);
+                let id = `${tipo}_${n.replace(/\s/g,'').replace(/'/g,'')}_${g}`;
+                let val = modSett[id] || def;
+                let cl = (val === "FESTIVO") ? "festivo" : ((val.includes("FERIE") || val === "RIPOSO") ? "assenza" : (modSett[id] ? "straordinario" : ""));
+                if(val.includes("🔄")) cl = "cambio-automatico";
+                if(val === "RIPOSO" && !modSett[id]) cl = "riposo-base";
+                row += `<td class="${cl}" onclick="edit('${id}','${def}')">${val}</td>`;
+            }
+            return row + "</tr>";
+        }).join('');
+    };
+
+    generaTabella(ftBase, 'FT', 'ft-body');
+    generaTabella(dbGlobale.ctdList, 'CTD', 'ctd-body');
+    generaTabella(ptNames, 'PT', 'pt-body');
+    popolaSelect();
+}
+
+function edit(id, def) {
+    let settKey = dataInizio.toLocaleDateString('it-IT');
+    if(!dbGlobale.modifiche[settKey]) dbGlobale.modifiche[settKey] = {};
+    let attuale = dbGlobale.modifiche[settKey][id] || def;
+    let res = prompt("Modifica turno:", attuale);
+    if(res !== null) {
+        dbGlobale.modifiche[settKey][id] = res.toUpperCase();
+        render();
+        salvaDatiSulServer();
+    }
+}
+
+function aggiungi() {
+    let n = prompt("Nome CTD:");
+    if(n) {
+        dbGlobale.ctdList.push(n.toUpperCase());
+        render();
+        salvaDatiSulServer();
+    }
+}
+
+function eliminaCTD(nome) {
+    if(confirm("Eliminare " + nome + "?")) {
+        dbGlobale.ctdList = dbGlobale.ctdList.filter(x => x !== nome);
+        render();
+        salvaDatiSulServer();
+    }
+}
+
+function resetSettimana() {
+    if(confirm("Resettare modifiche?")) {
+        let settKey = dataInizio.toLocaleDateString('it-IT');
+        delete dbGlobale.modifiche[settKey];
+        render();
+        salvaDatiSulServer();
+    }
+}
+
+function cambiaSett(v) { dataInizio.setDate(dataInizio.getDate() + (v * 7)); caricaDatiDalServer(); }
+function apriModal() { document.getElementById('modalCambio').style.display = 'block'; }
+function chiudiModal() { document.getElementById('modalCambio').style.display = 'none'; calendar.clear(); }
+
+function popolaSelect() {
+    const s1 = document.getElementById('richiedente'), s2 = document.getElementById('collegaCambio');
+    const tutti = [...ftBase.map(p=>p.n), ...dbGlobale.ctdList, ...ptNames].sort();
+    let opts = tutti.map(n => `<option value="${n}">${n}</option>`).join('');
+    if(s1) s1.innerHTML = opts; if(s2) s2.innerHTML = opts;
+}
+
+function soloInviaEmail() {
+    const r = document.getElementById('richiedente').value, c = document.getElementById('collegaCambio').value, d = calendar.selectedDates;
+    if(!r || !c || d.length === 0) return alert("Compila tutto!");
+    fetch(urlScript, { method: 'POST', body: JSON.stringify({action: "richiestaEmail", richiedente: r, collega: c, date: d.map(x => x.toLocaleDateString('it-IT'))}) });
+    alert("Richiesta inviata!"); chiudiModal();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    calendar = flatpickr("#giorniCalendario", { mode: "multiple", dateFormat: "Y-m-d", locale: "it", minDate: "today" });
+    caricaDatiDalServer();
+});
+</script>
+</body>
+</html>
